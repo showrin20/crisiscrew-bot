@@ -1,0 +1,5 @@
+{
+  "name": "CrisisCrew: Fire Response Assistant",
+  "description": "A dynamic dashboard for community fire responders, featuring gamified training, real-time alerts, and an AI-powered assistant to provide instant guidance during emergencies. This app helps coordinate and prepare volunteers to make communities safer.",
+  "requestFramePermissions": []
+}
