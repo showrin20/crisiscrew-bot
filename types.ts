@@ -1,20 +1,27 @@
 
-export interface User {
-  name: string;
-  level: string;
-  points: number;
-  streak: number;
-  progress: number;
-  avatarUrl: string;
-}
-
-export interface TrainingModule {
-  id: number;
-  title: string;
-  completed: boolean;
+export interface FireReport {
+  id: string;
+  severity: 'minor' | 'major' | 'critical';
+  location: {
+    lat: number;
+    lng: number;
+    address?: string;
+  };
+  description: string;
+  timestamp: Date;
+  photoUrl?: string;
+  voiceNote?: string;
 }
 
 export interface ChatMessage {
   role: 'user' | 'model' | 'error';
   text: string;
+}
+
+export type Language = 'en' | 'bn';
+
+export interface SafetyInstruction {
+  title: string;
+  steps: string[];
+  severity: 'minor' | 'major' | 'critical';
 }

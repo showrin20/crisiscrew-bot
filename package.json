@@ -1,7 +1,8 @@
 {
-  "name": "crisiscrew:-fire-response-assistant",
+  "name": "crisiscrew-fire-emergency-reporter",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
+  "description": "Quick fire emergency reporting app for Dhaka with AI severity detection and bilingual support",
   "type": "module",
   "scripts": {
     "dev": "vite",

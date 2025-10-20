@@ -7,7 +7,7 @@ import { SparklesIcon, SendIcon, UserIcon, BotIcon } from './icons/Icons';
 const CrisisBot: React.FC = () => {
   const [prompt, setPrompt] = useState<string>('');
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { role: 'model', text: 'Ask me anything about fire safety or emergency procedures.' },
+    { role: 'model', text: 'Ask me anything about fire safety or emergency procedures. / আগুনের নিরাপত্তা বা জরুরি পদ্ধতি সম্পর্কে আমাকে কিছু জিজ্ঞাসা করুন।' },
   ]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -42,7 +42,10 @@ const CrisisBot: React.FC = () => {
     <div className="flex flex-col h-full bg-gray-800/50 rounded-lg shadow-lg border border-gray-700/50">
       <div className="px-4 py-3 border-b border-gray-700/50 flex items-center space-x-2">
         <SparklesIcon className="h-6 w-6 text-red-400" />
-        <h3 className="text-lg font-semibold leading-6 text-gray-100">CrisisBot Assistant</h3>
+        <div>
+          <h3 className="text-lg font-semibold leading-6 text-gray-100">CrisisBot AI Assistant</h3>
+          <p className="text-xs text-gray-400">24/7 Fire Safety Guidance</p>
+        </div>
       </div>
       
       <div className="flex-1 p-4 overflow-y-auto space-y-4">
@@ -80,7 +83,7 @@ const CrisisBot: React.FC = () => {
             type="text"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Ask for guidance..."
+            placeholder="Ask in English or Bangla..."
             className="flex-1 w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-sm text-gray-200 placeholder-gray-400 focus:ring-red-500 focus:border-red-500 transition"
             disabled={isLoading}
           />
