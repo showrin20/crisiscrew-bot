@@ -11,6 +11,15 @@ export interface FireReport {
   timestamp: Date;
   photoUrl?: string;
   voiceNote?: string;
+  // New fields
+  fireSource?: string;
+  peopleTrapped?: boolean;
+  buildingType?: string;
+  floorNumber?: string;
+  hasHazardousMaterials?: boolean;
+  hazardousTypes?: string[];
+  accessibilityIssues?: string[];
+  contactNumber?: string;
 }
 
 export interface ChatMessage {

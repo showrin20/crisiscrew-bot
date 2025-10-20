@@ -3,7 +3,16 @@ import { FireReport, Language } from '../types';
 import { analyzeSeverity } from '../services/geminiService';
 
 interface FireReportFormProps {
-  onSubmit: (report: Omit<FireReport, 'id' | 'timestamp'>) => void;
+  onSubmit: (report: Omit<FireReport, 'id' | 'timestamp'> & {
+    fireSource?: string;
+    peopleTrapped?: boolean;
+    buildingType?: string;
+    floorNumber?: string;
+    hasHazardousMaterials?: boolean;
+    hazardousTypes?: string[];
+    accessibilityIssues?: string[];
+    contactNumber?: string;
+  }) => void;
   language: Language;
 }
 
@@ -21,6 +30,22 @@ const translations = {
     analyzing: 'Analyzing...',
     locationError: 'Unable to get location',
     locationPlaceholder: 'Enter location or address',
+    // New fields
+    additionalInfo: 'Additional Information (Optional)',
+    fireSource: 'Suspected Fire Source',
+    fireSourcePlaceholder: 'Select suspected source of fire',
+    peopleTrapped: 'Are people trapped?',
+    buildingType: 'Building Type',
+    floorNumber: 'Floor Number',
+    hazardousMaterials: 'Hazardous Materials Present?',
+    hazardousTypes: 'Types of Hazardous Materials',
+    accessibilityIssues: 'Accessibility Issues',
+    contactNumber: 'Your Contact Number',
+    contactNumberPlaceholder: 'For follow-up information',
+    yes: 'Yes',
+    no: 'No',
+    unknown: 'Unknown',
+    selectOption: 'Select an option',
   },
   bn: {
     title: 'আগুনের জরুরি রিপোর্ট করুন',
@@ -35,6 +60,22 @@ const translations = {
     analyzing: 'বিশ্লেষণ করা হচ্ছে...',
     locationError: 'অবস্থান পেতে অক্ষম',
     locationPlaceholder: 'অবস্থান বা ঠিকানা লিখুন',
+    // New fields
+    additionalInfo: 'অতিরিক্ত তথ্য (ঐচ্ছিক)',
+    fireSource: 'সম্ভাব্য আগুনের উৎস',
+    fireSourcePlaceholder: 'আগুনের সম্ভাব্য উৎস নির্বাচন করুন',
+    peopleTrapped: 'মানুষ আটকা পড়েছে?',
+    buildingType: 'ভবনের ধরণ',
+    floorNumber: 'তলা নম্বর',
+    hazardousMaterials: 'বিপজ্জনক উপাদান আছে?',
+    hazardousTypes: 'বিপজ্জনক উপাদানের ধরণ',
+    accessibilityIssues: 'প্রবেশযোগ্যতা সমস্যা',
+    contactNumber: 'আপনার যোগাযোগ নম্বর',
+    contactNumberPlaceholder: 'ফলো-আপ তথ্যের জন্য',
+    yes: 'হ্যাঁ',
+    no: 'না',
+    unknown: 'অজানা',
+    selectOption: 'একটি বিকল্প নির্বাচন করুন',
   },
 };
 
@@ -45,6 +86,16 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
   const [manualAddress, setManualAddress] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [locationError, setLocationError] = useState('');
+  
+  // New state for additional fields
+  const [fireSource, setFireSource] = useState('');
+  const [peopleTrapped, setPeopleTrapped] = useState<boolean | undefined>(undefined);
+  const [buildingType, setBuildingType] = useState('');
+  const [floorNumber, setFloorNumber] = useState('');
+  const [hasHazardousMaterials, setHasHazardousMaterials] = useState<boolean | undefined>(undefined);
+  const [hazardousTypes, setHazardousTypes] = useState<string[]>([]);
+  const [accessibilityIssues, setAccessibilityIssues] = useState<string[]>([]);
+  const [contactNumber, setContactNumber] = useState('');
 
   const t = translations[language];
 
@@ -91,12 +142,28 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
         severity,
         location: reportLocation,
         photoUrl: mediaUrl || undefined,
+        fireSource: fireSource || undefined,
+        peopleTrapped: peopleTrapped,
+        buildingType: buildingType || undefined,
+        floorNumber: floorNumber || undefined,
+        hasHazardousMaterials: hasHazardousMaterials,
+        hazardousTypes: hazardousTypes.length > 0 ? hazardousTypes : undefined,
+        accessibilityIssues: accessibilityIssues.length > 0 ? accessibilityIssues : undefined,
+        contactNumber: contactNumber || undefined,
       });
 
       // Reset form
       setDescription('');
       setMediaUrl('');
       setManualAddress('');
+      setFireSource('');
+      setPeopleTrapped(undefined);
+      setBuildingType('');
+      setFloorNumber('');
+      setHasHazardousMaterials(undefined);
+      setHazardousTypes([]);
+      setAccessibilityIssues([]);
+      setContactNumber('');
     } catch (error) {
       console.error('Error submitting report:', error);
     } finally {
@@ -180,6 +247,224 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
             {locationError && (
               <p className="text-yellow-500 text-xs">{locationError}</p>
             )}
+          </div>
+        </div>
+
+        {/* Additional Information Section */}
+        <div className="border-t border-gray-700 pt-4">
+          <h3 className="text-lg font-medium text-gray-300 mb-4">{t.additionalInfo}</h3>
+          
+          {/* Fire Source */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {t.fireSource}
+            </label>
+            <select
+              value={fireSource}
+              onChange={(e) => setFireSource(e.target.value)}
+              className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-sm text-gray-200 focus:ring-red-500 focus:border-red-500 transition"
+            >
+              <option value="">{t.selectOption}</option>
+              <option value="electrical">Electrical</option>
+              <option value="cooking">Cooking</option>
+              <option value="chemical">Chemical</option>
+              <option value="smoking">Smoking</option>
+              <option value="gas_leak">Gas Leak</option>
+              <option value="unknown">Unknown</option>
+            </select>
+          </div>
+          
+          {/* People Trapped */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {t.peopleTrapped}
+            </label>
+            <div className="flex gap-4">
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name="peopleTrapped"
+                  checked={peopleTrapped === true}
+                  onChange={() => setPeopleTrapped(true)}
+                  className="form-radio h-4 w-4 text-red-500 focus:ring-red-400"
+                />
+                <span className="ml-2 text-sm text-gray-300">{t.yes}</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name="peopleTrapped"
+                  checked={peopleTrapped === false}
+                  onChange={() => setPeopleTrapped(false)}
+                  className="form-radio h-4 w-4 text-red-500 focus:ring-red-400"
+                />
+                <span className="ml-2 text-sm text-gray-300">{t.no}</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name="peopleTrapped"
+                  checked={peopleTrapped === undefined}
+                  onChange={() => setPeopleTrapped(undefined)}
+                  className="form-radio h-4 w-4 text-red-500 focus:ring-red-400"
+                />
+                <span className="ml-2 text-sm text-gray-300">{t.unknown}</span>
+              </label>
+            </div>
+          </div>
+          
+          {/* Building Type */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {t.buildingType}
+            </label>
+            <select
+              value={buildingType}
+              onChange={(e) => setBuildingType(e.target.value)}
+              className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-sm text-gray-200 focus:ring-red-500 focus:border-red-500 transition"
+            >
+              <option value="">{t.selectOption}</option>
+              <option value="residential">Residential</option>
+              <option value="commercial">Commercial</option>
+              <option value="industrial">Industrial</option>
+              <option value="storage">Storage</option>
+              <option value="educational">Educational</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          
+          {/* Floor Number */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {t.floorNumber}
+            </label>
+            <select
+              value={floorNumber}
+              onChange={(e) => setFloorNumber(e.target.value)}
+              className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-sm text-gray-200 focus:ring-red-500 focus:border-red-500 transition"
+            >
+              <option value="">{t.selectOption}</option>
+              <option value="basement">Basement</option>
+              <option value="ground">Ground Floor</option>
+              {[...Array(20)].map((_, i) => (
+                <option key={i+1} value={(i+1).toString()}>
+                  {(i+1).toString()}{i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"} Floor
+                </option>
+              ))}
+              <option value="above_20">Above 20th Floor</option>
+            </select>
+          </div>
+          
+          {/* Hazardous Materials */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {t.hazardousMaterials}
+            </label>
+            <div className="flex gap-4">
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name="hazardousMaterials"
+                  checked={hasHazardousMaterials === true}
+                  onChange={() => setHasHazardousMaterials(true)}
+                  className="form-radio h-4 w-4 text-red-500 focus:ring-red-400"
+                />
+                <span className="ml-2 text-sm text-gray-300">{t.yes}</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name="hazardousMaterials"
+                  checked={hasHazardousMaterials === false}
+                  onChange={() => setHasHazardousMaterials(false)}
+                  className="form-radio h-4 w-4 text-red-500 focus:ring-red-400"
+                />
+                <span className="ml-2 text-sm text-gray-300">{t.no}</span>
+              </label>
+              <label className="inline-flex items-center">
+                <input
+                  type="radio"
+                  name="hazardousMaterials"
+                  checked={hasHazardousMaterials === undefined}
+                  onChange={() => setHasHazardousMaterials(undefined)}
+                  className="form-radio h-4 w-4 text-red-500 focus:ring-red-400"
+                />
+                <span className="ml-2 text-sm text-gray-300">{t.unknown}</span>
+              </label>
+            </div>
+          </div>
+          
+          {/* Types of Hazardous Materials (only show if hazardous materials is true) */}
+          {hasHazardousMaterials === true && (
+            <div className="mb-4 ml-4 border-l-2 border-gray-600 pl-4">
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                {t.hazardousTypes}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {['flammable_liquids', 'gas', 'chemicals', 'explosives', 'corrosive', 'radioactive'].map((type) => (
+                  <label key={type} className="inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={hazardousTypes.includes(type)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setHazardousTypes([...hazardousTypes, type]);
+                        } else {
+                          setHazardousTypes(hazardousTypes.filter(item => item !== type));
+                        }
+                      }}
+                      className="form-checkbox h-4 w-4 text-red-500 focus:ring-red-400"
+                    />
+                    <span className="ml-2 text-sm text-gray-300">
+                      {type.replace('_', ' ').charAt(0).toUpperCase() + type.replace('_', ' ').slice(1)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Accessibility Issues */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {t.accessibilityIssues}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {['narrow_road', 'no_elevator', 'blocked_entrance', 'water_shortage', 'dense_area', 'high_traffic'].map((issue) => (
+                <label key={issue} className="inline-flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={accessibilityIssues.includes(issue)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setAccessibilityIssues([...accessibilityIssues, issue]);
+                      } else {
+                        setAccessibilityIssues(accessibilityIssues.filter(item => item !== issue));
+                      }
+                    }}
+                    className="form-checkbox h-4 w-4 text-red-500 focus:ring-red-400"
+                  />
+                  <span className="ml-2 text-sm text-gray-300">
+                    {issue.replace('_', ' ').charAt(0).toUpperCase() + issue.replace('_', ' ').slice(1)}
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
+          
+          {/* Contact Number */}
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {t.contactNumber}
+            </label>
+            <input
+              type="tel"
+              value={contactNumber}
+              onChange={(e) => setContactNumber(e.target.value)}
+              placeholder={t.contactNumberPlaceholder}
+              className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-sm text-gray-200 placeholder-gray-400 focus:ring-red-500 focus:border-red-500 transition"
+            />
           </div>
         </div>
 

@@ -7,6 +7,7 @@ import SafetyInstructions from './components/SafetyInstructions';
 import CrisisBot from './components/CrisisBot';
 import { FireReport, Language } from './types';
 import { analyzeFireReport } from './services/geminiService';
+import { saveFireReportToGoogleSheets, saveFireReportViaWebhook } from './services/googleSheetsService';
 
 const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('en');
@@ -14,7 +15,16 @@ const App: React.FC = () => {
   const [aiResponse, setAiResponse] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const handleReportSubmit = async (report: Omit<FireReport, 'id' | 'timestamp'>) => {
+  const handleReportSubmit = async (report: Omit<FireReport, 'id' | 'timestamp'> & {
+    fireSource?: string;
+    peopleTrapped?: boolean;
+    buildingType?: string;
+    floorNumber?: string;
+    hasHazardousMaterials?: boolean;
+    hazardousTypes?: string[];
+    accessibilityIssues?: string[];
+    contactNumber?: string;
+  }) => {
     const newReport: FireReport = {
       ...report,
       id: Date.now().toString(),
@@ -37,6 +47,22 @@ const App: React.FC = () => {
       
       setAiResponse(response);
       console.log('Fire report submitted and analyzed:', newReport);
+      
+      // Save to Google Sheets in the background
+      saveFireReportToGoogleSheets(newReport)
+        .then(success => {
+          if (success) {
+            console.log('Successfully saved report to Google Sheets');
+          } else {
+            console.error('Failed to save report to Google Sheets');
+            // Try alternative webhook as backup
+            return saveFireReportViaWebhook(newReport);
+          }
+        })
+        .catch(error => {
+          console.error('Error saving report to data storage:', error);
+        });
+        
     } catch (error) {
       console.error('Error analyzing fire report:', error);
       setAiResponse(
@@ -75,7 +101,6 @@ const App: React.FC = () => {
           {/* Left Column - Fire Report Form */}
           <div className="lg:col-span-1 flex flex-col gap-6">
             <FireReportForm onSubmit={handleReportSubmit} language={language} />
-            <EmergencyContact language={language} />
           </div>
 
           {/* Center Column - Safety Instructions & AI Response */}
@@ -84,13 +109,45 @@ const App: React.FC = () => {
             
             {currentReport && (
               <div className="bg-gray-800/50 rounded-lg shadow-lg border border-gray-700/50 p-6">
-                <h3 className="text-lg font-bold text-green-400 mb-3">
-                  {language === 'en' ? '✓ Report Submitted' : '✓ রিপোর্ট জমা হয়েছে'}
+                <h3 className="text-lg font-bold text-green-400 mb-3 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  {language === 'en' ? 'Report Submitted' : 'রিপোর্ট জমা হয়েছে'}
                 </h3>
+                
                 <div className="text-sm text-gray-300 space-y-2">
+                  <p><strong>{language === 'en' ? 'Report ID:' : 'রিপোর্ট আইডি:'}</strong> {currentReport.id}</p>
                   <p><strong>{language === 'en' ? 'Severity:' : 'তীব্রতা:'}</strong> {currentReport.severity.toUpperCase()}</p>
-                  <p><strong>{language === 'en' ? 'Location:' : 'অবস্থান:'}</strong> {currentReport.location.address || `${currentReport.location.lat}, ${currentReport.location.lng}`}</p>
+                  <p><strong>{language === 'en' ? 'Location:' : 'অবস্থান:'}</strong> {currentReport.location.address || `${currentReport.location.lat.toFixed(4)}, ${currentReport.location.lng.toFixed(4)}`}</p>
                   <p><strong>{language === 'en' ? 'Time:' : 'সময়:'}</strong> {currentReport.timestamp.toLocaleTimeString()}</p>
+                  
+                  {currentReport.buildingType && (
+                    <p><strong>{language === 'en' ? 'Building Type:' : 'ভবনের ধরণ:'}</strong> {currentReport.buildingType}</p>
+                  )}
+                  
+                  {currentReport.floorNumber && (
+                    <p><strong>{language === 'en' ? 'Floor:' : 'তলা:'}</strong> {currentReport.floorNumber}</p>
+                  )}
+                  
+                  {currentReport.peopleTrapped !== undefined && (
+                    <p>
+                      <strong>{language === 'en' ? 'People Trapped:' : 'মানুষ আটকা পড়েছে:'}</strong> 
+                      {currentReport.peopleTrapped ? 
+                        (language === 'en' ? 'Yes' : 'হ্যাঁ') : 
+                        (language === 'en' ? 'No' : 'না')}
+                    </p>
+                  )}
+                  
+                  {currentReport.fireSource && (
+                    <p><strong>{language === 'en' ? 'Fire Source:' : 'আগুনের উৎস:'}</strong> {currentReport.fireSource}</p>
+                  )}
+                  
+                  <div className="mt-2 pt-2 border-t border-gray-700">
+                    <p className="text-xs text-gray-400">
+                      {language === 'en' ? 'Data saved to database' : 'ডাটা ডাটাবেসে সংরক্ষিত হয়েছে'}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
@@ -119,7 +176,9 @@ const App: React.FC = () => {
           </div>
 
           {/* Right Column - Chatbot */}
-          <div className="lg:col-span-1 flex flex-col">
+          <div className="lg:col-span-1 flex flex-col gap-6">
+            
+            <EmergencyContact language={language} />
             <CrisisBot />
           </div>
         </div>

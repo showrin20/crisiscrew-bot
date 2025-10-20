@@ -39,7 +39,7 @@ const CrisisBot: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full bg-gray-800/50 rounded-lg shadow-lg border border-gray-700/50">
+    <div className="flex flex-col bg-gray-800/50 rounded-lg shadow-lg border border-gray-700/50">
       <div className="px-4 py-3 border-b border-gray-700/50 flex items-center space-x-2">
         <SparklesIcon className="h-6 w-6 text-red-400" />
         <div>
@@ -48,7 +48,7 @@ const CrisisBot: React.FC = () => {
         </div>
       </div>
       
-      <div className="flex-1 p-4 overflow-y-auto space-y-4">
+      <div className="h-64 p-4 overflow-y-auto space-y-4">
         {chatHistory.map((msg, index) => (
           <div key={index} className={`flex items-start gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'model' && <BotIcon />}
