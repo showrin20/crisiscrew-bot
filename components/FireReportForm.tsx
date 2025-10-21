@@ -50,6 +50,10 @@ const translations = {
     startVoiceInput: 'Use voice input',
     stopListening: 'Stop listening',
     voiceNotSupported: 'Voice input not supported in this browser',
+    saveToGoogleSheets: 'Save to Google Sheets',
+    savingToGoogleSheets: 'Saving to Google Sheets...',
+    savedToGoogleSheets: 'Saved to Google Sheets',
+    errorSavingToGoogleSheets: 'Error saving to Google Sheets',
   },
   bn: {
     title: 'আগুনের জরুরি রিপোর্ট করুন',
@@ -83,6 +87,10 @@ const translations = {
     startVoiceInput: 'ভয়েস ইনপুট ব্যবহার করুন',
     stopListening: 'শোনা বন্ধ করুন',
     voiceNotSupported: 'এই ব্রাউজারে ভয়েস ইনপুট সমর্থিত নয়',
+    saveToGoogleSheets: 'গুগল শিটে সংরক্ষণ করুন',
+    savingToGoogleSheets: 'গুগল শিটে সংরক্ষণ করা হচ্ছে...',
+    savedToGoogleSheets: 'গুগল শিটে সংরক্ষিত হয়েছে',
+    errorSavingToGoogleSheets: 'গুগল শিটে সংরক্ষণ করতে ত্রুটি',
   },
 };
 
@@ -97,6 +105,8 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
   const [speechError, setSpeechError] = useState<string | null>(null);
   const [listeningField, setListeningField] = useState<'description' | 'address' | null>(null);
   const speechRecognitionRef = useRef<{ stop: () => void } | null>(null);
+  const [saveToGoogleSheets, setSaveToGoogleSheets] = useState<boolean>(true);
+  const [googleSheetsSaveStatus, setGoogleSheetsSaveStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   
   // New state for additional fields
   const [fireSource, setFireSource] = useState('');
@@ -212,8 +222,9 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
         lng: 0,
         address: manualAddress || 'Unknown',
       };
-
-      onSubmit({
+      
+      // Create report data
+      const reportData = {
         description,
         severity,
         location: reportLocation,
@@ -226,7 +237,29 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
         hazardousTypes: hazardousTypes.length > 0 ? hazardousTypes : undefined,
         accessibilityIssues: accessibilityIssues.length > 0 ? accessibilityIssues : undefined,
         contactNumber: contactNumber || undefined,
-      });
+      };
+
+      // Submit the report through the regular channel
+      onSubmit(reportData);
+      
+      // Save to Google Sheets if opted in
+      if (saveToGoogleSheets) {
+        try {
+          setGoogleSheetsSaveStatus('saving');
+          // Import the function dynamically to prevent circular dependencies
+          const { saveFireReportToGoogleSheets } = await import('../services/googleSheetsService');
+          const success = await saveFireReportToGoogleSheets(reportData);
+          setGoogleSheetsSaveStatus(success ? 'success' : 'error');
+          
+          // Reset the status after a few seconds
+          setTimeout(() => {
+            setGoogleSheetsSaveStatus('idle');
+          }, 3000);
+        } catch (error) {
+          console.error('Error saving to Google Sheets:', error);
+          setGoogleSheetsSaveStatus('error');
+        }
+      }
 
       // Reset form
       setDescription('');
@@ -247,6 +280,7 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
     }
   };
 
+  // No longer needed as we're always allowing Google Sheets saving without auth
   return (
     <div className="bg-gray-800/50 rounded-lg shadow-lg border border-gray-700/50 p-6">
       <h2 className="text-2xl font-bold text-red-400 mb-6">{t.title}</h2>
@@ -585,6 +619,44 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
             />
           </div>
         </div>
+
+        {/* Google Sheets Save Option */}
+        <div className="flex items-center mb-4">
+          <input
+            id="save-to-sheets"
+            type="checkbox"
+            checked={saveToGoogleSheets}
+            onChange={(e) => setSaveToGoogleSheets(e.target.checked)}
+            className="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-500 rounded"
+          />
+          <label htmlFor="save-to-sheets" className="ml-2 text-sm text-gray-300">
+            {t.saveToGoogleSheets}
+          </label>
+            
+            {/* Google Sheets save status indicator */}
+            {googleSheetsSaveStatus === 'saving' && (
+              <span className="ml-2 text-xs text-yellow-400 flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-yellow-400 mr-1"></div>
+                {t.savingToGoogleSheets}
+              </span>
+            )}
+            {googleSheetsSaveStatus === 'success' && (
+              <span className="ml-2 text-xs text-green-400 flex items-center">
+                <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                {t.savedToGoogleSheets}
+              </span>
+            )}
+            {googleSheetsSaveStatus === 'error' && (
+              <span className="ml-2 text-xs text-red-400 flex items-center">
+                <svg className="h-3 w-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                {t.errorSavingToGoogleSheets}
+              </span>
+            )}
+          </div>
 
         {/* Submit Button */}
         <button

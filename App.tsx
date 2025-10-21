@@ -7,7 +7,7 @@ import SafetyInstructions from './components/SafetyInstructions';
 import CrisisBot from './components/CrisisBot';
 import { FireReport, Language } from './types';
 import { analyzeFireReport } from './services/geminiService';
-import { saveFireReportToGoogleSheets, saveFireReportViaWebhook } from './services/googleSheetsService';
+import { saveFireReportToGoogleSheets } from './services/googleSheetsService';
 
 const App: React.FC = () => {
   const [language, setLanguage] = useState<Language>('en');
@@ -52,15 +52,13 @@ const App: React.FC = () => {
       saveFireReportToGoogleSheets(newReport)
         .then(success => {
           if (success) {
-            console.log('Successfully saved report to Google Sheets');
+            console.log('Successfully sent report to Google Sheets');
           } else {
-            console.error('Failed to save report to Google Sheets');
-            // Try alternative webhook as backup
-            return saveFireReportViaWebhook(newReport);
+            console.error('Failed to send report to Google Sheets');
           }
         })
         .catch(error => {
-          console.error('Error saving report to data storage:', error);
+          console.error('Error saving report to Google Sheets:', error);
         });
         
     } catch (error) {

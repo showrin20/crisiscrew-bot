@@ -1,88 +1,57 @@
-# Google Sheets Integration for CrisisBot
+# Google Sheets Setup for CrisisCrew Bot
 
-This document explains how to set up the Google Sheets integration for storing fire emergency reports.
+This guide explains how to set up Google Sheets integration for the CrisisCrew Bot to save fire reports directly to your Google Sheet.
 
-## Setup Instructions
+## Step 1: Create a Google Sheet
 
-### 1. Create a Google Cloud Project
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable the Google Sheets API for your project
+1. Go to [Google Sheets](https://sheets.google.com) and create a new sheet
+2. Note the spreadsheet ID from the URL:
+   - Example URL: `https://docs.google.com/spreadsheets/d/1FrMux_i7ZVIf8ENkyURLrx3NOgIUAs-9_hLx0lrh-KA/edit`
+   - Spreadsheet ID: `1FrMux_i7ZVIf8ENkyURLrx3NOgIUAs-9_hLx0lrh-KA`
+3. Add this ID to your `.env` file as `VITE_GOOGLE_SHEET_ID`
 
-### 2. Set Up Service Account
-1. In your Google Cloud project, go to "IAM & Admin" > "Service Accounts"
-2. Create a new service account
-3. Give it a name like "crisiscrew-bot"
-4. Grant it the "Editor" role for Google Sheets
-5. Create and download the JSON key file
+## Step 2: Create a Google Apps Script
 
-### 3. Create a Google Sheet
-1. Go to [Google Sheets](https://sheets.google.com/)
-2. Create a new spreadsheet
-3. Add the following headers in row 1:
-   - Timestamp
-   - Severity
-   - Description
-   - Location
-   - Coordinates
-   - Fire Source
-   - People Trapped
-   - Building Type
-   - Floor Number
-   - Hazardous Materials
-   - Hazardous Types
-   - Accessibility Issues
-   - Contact Number
-   - Photo URL
-4. Share the spreadsheet with the email address of your service account (with Editor permissions)
+1. Go to [Google Apps Script](https://script.google.com) and create a new project
+2. Copy the contents of `google_apps_script.js` from this repository into the script editor
+3. Save the project with a name like "CrisisCrew Bot - Google Sheets Integration"
 
-### 4. Configure Environment Variables
-Add these variables to your `.env` file:
+## Step 3: Deploy the Script as a Web App
 
-```
-VITE_GOOGLE_SHEET_ID=your_sheet_id
-VITE_GOOGLE_SERVICE_ACCOUNT_EMAIL=your_service_account_email
-VITE_GOOGLE_PRIVATE_KEY=your_private_key
-```
+1. In the Google Apps Script editor, click on "Deploy" > "New deployment"
+2. Select "Web app" as the deployment type
+3. Configure the following settings:
+   - Description: "CrisisCrew Bot Web App"
+   - Execute as: "Me" (your Google account)
+   - Who has access: "Anyone" (if you want to allow public access without authentication)
+4. Click "Deploy" and authorize the app when prompted
+5. Copy the Web app URL that appears after deployment
 
-Alternatively, you can use a webhook service:
+## Step 4: Configure the CrisisCrew Bot
 
-```
-VITE_WEBHOOK_URL=your_webhook_url
-```
+1. Add the Web app URL to your `.env` file as `VITE_GOOGLE_SCRIPT_URL`:
+   ```
+   VITE_GOOGLE_SCRIPT_URL=https://script.google.com/macros/s/YOUR_DEPLOYED_SCRIPT_ID/exec
+   ```
 
-## Webhook Integration Options
+2. Make sure your `.env` file has the required variables:
+   ```
+   VITE_GOOGLE_SHEET_ID=your_sheet_id
+   VITE_GOOGLE_SCRIPT_URL=your_script_url
+   ```
 
-Instead of directly integrating with Google Sheets API, you can use these services:
+## How It Works
 
-1. **IFTTT**: Create an applet that receives a webhook and adds a row to Google Sheets
-2. **Zapier**: Create a zap with a webhook trigger and Google Sheets action
-3. **Make.com** (formerly Integromat): Create a scenario with webhook and Google Sheets modules
-4. **Google Apps Script**: Deploy a web app that receives POST requests and adds data to your sheet
+When a user submits a fire report in the CrisisCrew Bot app:
 
-## Data Structure
+1. The app sends the report data to your Google Apps Script web app
+2. The script receives the data and appends it as a new row in your Google Sheet
+3. All reports are stored in the "Fire Reports" sheet within your spreadsheet
 
-The following data fields are collected and stored:
+This approach doesn't require OAuth authentication since the web app is run under your Google account's permissions.
 
-| Field | Description |
-|-------|-------------|
-| Timestamp | When the report was submitted |
-| Severity | Classification: minor, major, or critical |
-| Description | User's description of the fire |
-| Location | Address or coordinates |
-| Coordinates | Latitude and longitude |
-| Fire Source | Suspected cause of the fire |
-| People Trapped | Yes, No, or Unknown |
-| Building Type | Type of building structure |
-| Floor Number | Where the fire is occurring |
-| Hazardous Materials | Yes, No, or Unknown |
-| Hazardous Types | Types of hazardous materials present |
-| Accessibility Issues | Issues that might hinder emergency response |
-| Contact Number | Reporter's contact information |
-| Photo URL | Link to image if provided |
+## Troubleshooting
 
-## Security Considerations
-
-- The Google Sheets API key and service account credentials should be kept secure
-- For production, consider using server-side code to handle the Google Sheets API calls
-- Implement rate limiting to prevent API abuse
+- If you're not seeing data in your sheet, check the browser console for any errors
+- Make sure your Google Sheet and Google Apps Script are both deployed and accessible
+- Try visiting the web app URL directly in your browser to verify it's working
