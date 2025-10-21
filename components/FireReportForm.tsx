@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { FireReport, Language } from '../types';
 import { analyzeSeverity } from '../services/geminiService';
+import { startSpeechRecognition, mapLanguageToSpeechRecognition } from '../services/speechService';
 
 interface FireReportFormProps {
   onSubmit: (report: Omit<FireReport, 'id' | 'timestamp'> & {
@@ -46,6 +47,9 @@ const translations = {
     no: 'No',
     unknown: 'Unknown',
     selectOption: 'Select an option',
+    startVoiceInput: 'Use voice input',
+    stopListening: 'Stop listening',
+    voiceNotSupported: 'Voice input not supported in this browser',
   },
   bn: {
     title: 'আগুনের জরুরি রিপোর্ট করুন',
@@ -76,6 +80,9 @@ const translations = {
     no: 'না',
     unknown: 'অজানা',
     selectOption: 'একটি বিকল্প নির্বাচন করুন',
+    startVoiceInput: 'ভয়েস ইনপুট ব্যবহার করুন',
+    stopListening: 'শোনা বন্ধ করুন',
+    voiceNotSupported: 'এই ব্রাউজারে ভয়েস ইনপুট সমর্থিত নয়',
   },
 };
 
@@ -86,6 +93,10 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
   const [manualAddress, setManualAddress] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [locationError, setLocationError] = useState('');
+  const [isListening, setIsListening] = useState<boolean>(false);
+  const [speechError, setSpeechError] = useState<string | null>(null);
+  const [listeningField, setListeningField] = useState<'description' | 'address' | null>(null);
+  const speechRecognitionRef = useRef<{ stop: () => void } | null>(null);
   
   // New state for additional fields
   const [fireSource, setFireSource] = useState('');
@@ -98,6 +109,16 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
   const [contactNumber, setContactNumber] = useState('');
 
   const t = translations[language];
+  
+  // Stop speech recognition when component unmounts
+  useEffect(() => {
+    return () => {
+      if (speechRecognitionRef.current) {
+        speechRecognitionRef.current.stop();
+        speechRecognitionRef.current = null;
+      }
+    };
+  }, []);
 
   const getCurrentLocation = () => {
     setLocationError('');
@@ -118,6 +139,61 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
       );
     } else {
       setLocationError('Geolocation not supported');
+    }
+  };
+  
+  const toggleSpeechRecognition = (fieldName: 'description' | 'address') => {
+    if (isListening) {
+      // Stop current listening session
+      if (speechRecognitionRef.current) {
+        speechRecognitionRef.current.stop();
+        speechRecognitionRef.current = null;
+      }
+      setIsListening(false);
+      setListeningField(null);
+      return;
+    }
+    
+    // Start listening for the selected field
+    setSpeechError(null);
+    setListeningField(fieldName);
+    
+    try {
+      // Map UI language to speech recognition language
+      const recognitionLanguage = mapLanguageToSpeechRecognition(language);
+      
+      speechRecognitionRef.current = startSpeechRecognition(
+        (result) => {
+          if (fieldName === 'description') {
+            setDescription(result.transcript);
+          } else if (fieldName === 'address') {
+            setManualAddress(result.transcript);
+          }
+          
+          if (result.isComplete) {
+            // Automatically stop after a complete sentence
+            if (speechRecognitionRef.current) {
+              speechRecognitionRef.current.stop();
+              speechRecognitionRef.current = null;
+              setIsListening(false);
+              setListeningField(null);
+            }
+          }
+        },
+        (error) => {
+          console.error('Speech recognition error:', error);
+          setSpeechError(error.message);
+          setIsListening(false);
+          setListeningField(null);
+        },
+        { language: recognitionLanguage, continuous: false, interimResults: true }
+      );
+      
+      setIsListening(true);
+    } catch (error) {
+      console.error('Failed to start speech recognition:', error);
+      setSpeechError(error instanceof Error ? error.message : 'Unknown error');
+      setListeningField(null);
     }
   };
 
@@ -181,14 +257,35 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
           <label className="block text-sm font-medium text-gray-300 mb-2">
             {t.description}
           </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder={t.descriptionPlaceholder}
-            rows={4}
-            className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-sm text-gray-200 placeholder-gray-400 focus:ring-red-500 focus:border-red-500 transition"
-            required
-          />
+          <div className="relative">
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t.descriptionPlaceholder}
+              rows={4}
+              className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-sm text-gray-200 placeholder-gray-400 focus:ring-red-500 focus:border-red-500 transition"
+              required
+            />
+            <button
+              type="button"
+              onClick={() => toggleSpeechRecognition('description')}
+              disabled={isAnalyzing}
+              className={`absolute top-2 right-2 p-2 rounded-full ${listeningField === 'description' ? 'bg-red-500 animate-pulse' : 'bg-gray-600'} text-white hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-all`}
+              title={listeningField === 'description' ? t.stopListening || "Stop listening" : t.startVoiceInput || "Start voice input"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+              </svg>
+            </button>
+          </div>
+          {speechError && listeningField === 'description' && (
+            <p className="mt-2 text-xs text-yellow-400">
+              {speechError === 'Speech recognition not supported in this browser' 
+                ? t.voiceNotSupported || 'Voice input not supported in this browser' 
+                : speechError
+              }
+            </p>
+          )}
         </div>
 
         {/* Media Link Input */}
@@ -237,13 +334,34 @@ const FireReportForm: React.FC<FireReportFormProps> = ({ onSubmit, language }) =
               </svg>
               {t.useCurrentLocation}
             </button>
-            <input
-              type="text"
-              value={manualAddress}
-              onChange={(e) => setManualAddress(e.target.value)}
-              placeholder={t.locationPlaceholder}
-              className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-sm text-gray-200 placeholder-gray-400 focus:ring-red-500 focus:border-red-500 transition"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                value={manualAddress}
+                onChange={(e) => setManualAddress(e.target.value)}
+                placeholder={t.locationPlaceholder}
+                className="w-full bg-gray-700 border border-gray-600 rounded-md py-2 px-3 text-sm text-gray-200 placeholder-gray-400 focus:ring-red-500 focus:border-red-500 transition"
+              />
+              <button
+                type="button"
+                onClick={() => toggleSpeechRecognition('address')}
+                disabled={isAnalyzing}
+                className={`absolute top-1/2 right-2 transform -translate-y-1/2 p-2 rounded-full ${listeningField === 'address' ? 'bg-red-500 animate-pulse' : 'bg-gray-600'} text-white hover:bg-red-700 disabled:bg-gray-700 disabled:cursor-not-allowed transition-all`}
+                title={listeningField === 'address' ? t.stopListening || "Stop listening" : t.startVoiceInput || "Start voice input"}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                </svg>
+              </button>
+            </div>
+            {speechError && listeningField === 'address' && (
+              <p className="mt-2 text-xs text-yellow-400">
+                {speechError === 'Speech recognition not supported in this browser' 
+                  ? t.voiceNotSupported || 'Voice input not supported in this browser' 
+                  : speechError
+                }
+              </p>
+            )}
             {locationError && (
               <p className="text-yellow-500 text-xs">{locationError}</p>
             )}
