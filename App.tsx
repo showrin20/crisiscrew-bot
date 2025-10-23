@@ -1,12 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Header from './components/Header';
 import FireReportForm from './components/FireReportForm';
 import EmergencyContact from './components/EmergencyContact';
 import SafetyInstructions from './components/SafetyInstructions';
 import CrisisBot from './components/CrisisBot';
+import ApiKeySettings from './components/ApiKeySettings';
 import { FireReport, Language } from './types';
-import { analyzeFireReport } from './services/geminiService';
+import { analyzeFireReport, getRemainingUsage } from './services/geminiService';
 import { saveFireReportToGoogleSheets } from './services/googleSheetsService';
 
 const App: React.FC = () => {
@@ -14,6 +15,19 @@ const App: React.FC = () => {
   const [currentReport, setCurrentReport] = useState<FireReport | null>(null);
   const [aiResponse, setAiResponse] = useState<string>('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [remainingUsage, setRemainingUsage] = useState<number>(5);
+  
+  // Check remaining usage on mount and after API calls
+  useEffect(() => {
+    setRemainingUsage(getRemainingUsage());
+    
+    // Update remaining usage every minute
+    const intervalId = setInterval(() => {
+      setRemainingUsage(getRemainingUsage());
+    }, 60000);
+    
+    return () => clearInterval(intervalId);
+  }, []);
 
   const handleReportSubmit = async (report: Omit<FireReport, 'id' | 'timestamp'> & {
     fireSource?: string;
@@ -70,6 +84,8 @@ const App: React.FC = () => {
       );
     } finally {
       setIsAnalyzing(false);
+      // Update remaining usage after API call
+      setRemainingUsage(getRemainingUsage());
     }
   };
 
@@ -95,6 +111,28 @@ const App: React.FC = () => {
       </div>
 
       <main className="p-4 sm:p-6 lg:p-8">
+        {remainingUsage < 3 && remainingUsage > 0 && (
+          <div className="bg-yellow-900/30 border border-yellow-700/50 rounded-md p-3 mb-4 text-sm text-yellow-300 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            {language === 'en' 
+              ? `Low daily usage remaining: ${remainingUsage} API calls left. Add your own API key to avoid limits.` 
+              : `দৈনিক ব্যবহার কম অবশিষ্ট আছে: ${remainingUsage} API কল বাকি আছে। সীমাবদ্ধতা এড়াতে আপনার নিজের API কী যোগ করুন।`}
+          </div>
+        )}
+        
+        {remainingUsage === 0 && (
+          <div className="bg-red-900/30 border border-red-700/50 rounded-md p-3 mb-4 text-sm text-red-300 flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            {language === 'en' 
+              ? `Daily usage limit reached. Please add your own API key in Settings to continue using AI features.` 
+              : `দৈনিক ব্যবহারের সীমা পৌঁছে গেছে। AI বৈশিষ্ট্যগুলি ব্যবহার চালিয়ে যেতে সেটিংসে আপনার নিজের API কী যোগ করুন।`}
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Fire Report Form */}
           <div className="lg:col-span-1 flex flex-col gap-6">
@@ -173,10 +211,10 @@ const App: React.FC = () => {
             )}
           </div>
 
-          {/* Right Column - Chatbot */}
+          {/* Right Column - Chatbot and Settings */}
           <div className="lg:col-span-1 flex flex-col gap-6">
-            
             <EmergencyContact language={language} />
+            <ApiKeySettings language={language} />
             <CrisisBot />
           </div>
         </div>

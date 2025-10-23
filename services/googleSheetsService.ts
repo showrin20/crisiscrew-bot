@@ -4,8 +4,13 @@
 import { getValidAccessToken } from './googleAuthService';
 
 // Get the Google Sheet ID from environment variables
-const FIRE_REPORTS_SHEET_ID = import.meta.env.VITE_GOOGLE_SHEET_ID || '1FrMux_i7ZVIf8ENkyURLrx3NOgIUAs-9_hLx0lrh-KA';
+const FIRE_REPORTS_SHEET_ID = import.meta.env.VITE_GOOGLE_SHEET_ID || '1a6dKOXeKyLOR89T5AOWdliGRvcBzhAmWM848DcuhUvw';
 const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL || '';
+
+// For debugging in console
+console.log('Google Sheets Configuration:');
+console.log('- Sheet ID:', FIRE_REPORTS_SHEET_ID);
+console.log('- Script URL:', GOOGLE_SCRIPT_URL || 'Not configured');
 
 /**
  * Save fire report data to Google Sheets using Google Apps Script web app
@@ -32,31 +37,104 @@ export const saveFireReportToGoogleSheets = async (reportData: any): Promise<boo
       reportData.photoUrl || 'No image',
     ];
 
-    // Use the Google Apps Script URL from environment variables
+    // Validate configuration
     if (!GOOGLE_SCRIPT_URL) {
       console.error('Google Apps Script URL is not configured in environment variables');
       return false;
     }
     
-    // Send the data to your Google Apps Script web app
-    const response = await fetch(GOOGLE_SCRIPT_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        spreadsheetId: FIRE_REPORTS_SHEET_ID,
-        data: rowData
-      }),
-      mode: 'no-cors' // Google Apps Script requires this
+    if (!FIRE_REPORTS_SHEET_ID) {
+      console.error('Google Sheet ID is not configured in environment variables');
+      return false;
+    }
+    
+    console.log('Sending data to Google Apps Script:', {
+      url: GOOGLE_SCRIPT_URL,
+      sheetId: FIRE_REPORTS_SHEET_ID,
+      dataLength: rowData.length,
+      timestamp: new Date().toISOString()
     });
     
-    // Since we're using no-cors, we can't actually check the response status
-    // We'll assume it succeeded if no error was thrown
-    console.log('Data sent to Google Apps Script web app');
-    return true;
+    // Log the actual data being sent for debugging
+    console.log('Row data being sent:', JSON.stringify(rowData));
+    
+    // First try to send with standard CORS to get a proper response
+    try {
+      console.log('Attempting standard fetch request...');
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          spreadsheetId: FIRE_REPORTS_SHEET_ID,
+          data: rowData
+        }),
+      });
+      
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response headers:', [...response.headers.entries()]);
+      
+      const responseText = await response.text();
+      console.log('Google Apps Script response:', responseText);
+      
+      try {
+        // Try to parse the response as JSON
+        const jsonResponse = JSON.parse(responseText);
+        console.log('Parsed JSON response:', jsonResponse);
+        
+        if (jsonResponse.status === 'error') {
+          console.error('Google Apps Script returned error:', jsonResponse.message);
+          return false;
+        }
+        
+        return true;
+      } catch (parseError) {
+        console.warn('Response is not valid JSON:', parseError);
+        // Even if not JSON, we got a response, so it might have worked
+        return response.ok;
+      }
+    } catch (corsError) {
+      console.warn('CORS issue with Google Apps Script, error details:', corsError);
+      console.log('Falling back to no-cors mode...');
+      
+      // Log complete details of the error
+      if (corsError instanceof Error) {
+        console.error('Error name:', corsError.name);
+        console.error('Error message:', corsError.message);
+        console.error('Error stack:', corsError.stack);
+      }
+      
+      try {
+        // Fall back to no-cors mode
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            spreadsheetId: FIRE_REPORTS_SHEET_ID,
+            data: rowData
+          }),
+          mode: 'no-cors' // Use no-cors mode as fallback
+        });
+        
+        console.log('Data sent to Google Apps Script web app in no-cors mode');
+        console.log('Note: With no-cors mode, we cannot verify if the request succeeded');
+        return true;
+      } catch (noCorsError) {
+        console.error('Even no-cors mode failed:', noCorsError);
+        return false;
+      }
+    }
   } catch (error) {
     console.error('Error saving to Fire Reports sheet:', error);
+    // Log complete details of the error
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
     return false;
   }
 };
@@ -105,4 +183,166 @@ export const getGoogleSheetInfo = (): { name: string, id: string } => {
     name: 'Fire Reports',
     id: FIRE_REPORTS_SHEET_ID
   };
+};
+
+/**
+ * Returns the Google Sheets configuration for debugging purposes
+ * Used by the GoogleSheetsDebugger component
+ */
+export const debugGoogleSheetsConfig = () => {
+  return {
+    scriptUrlConfigured: !!GOOGLE_SCRIPT_URL,
+    scriptUrlValue: GOOGLE_SCRIPT_URL,
+    sheetIdConfigured: !!FIRE_REPORTS_SHEET_ID,
+    sheetIdValue: FIRE_REPORTS_SHEET_ID,
+    scriptUrlMasked: GOOGLE_SCRIPT_URL ? 
+      `${GOOGLE_SCRIPT_URL.substring(0, 20)}...${GOOGLE_SCRIPT_URL.substring(GOOGLE_SCRIPT_URL.length - 20)}` : 
+      'Not configured'
+  };
+};
+
+/**
+ * Test the connection to the Google Apps Script
+ * Sends a test request to verify connectivity
+ * @returns Result of the connection test
+ */
+export const testGoogleSheetsConnection = async (): Promise<{success: boolean; message: string; details?: any}> => {
+  // Log the configuration for debugging
+  const config = debugGoogleSheetsConfig();
+  console.log('Google Sheets Configuration for test:', config);
+  
+  if (!GOOGLE_SCRIPT_URL) {
+    return {
+      success: false,
+      message: 'Google Apps Script URL is not configured'
+    };
+  }
+
+  if (!FIRE_REPORTS_SHEET_ID) {
+    return {
+      success: false,
+      message: 'Google Sheet ID is not configured'
+    };
+  }
+
+  try {
+    // Try with standard CORS first to get proper response
+    try {
+      console.log(`Sending test request to: ${GOOGLE_SCRIPT_URL}`);
+      
+      const testPayload = {
+        spreadsheetId: FIRE_REPORTS_SHEET_ID,
+        action: 'test',
+        testData: 'Connection test from CrisisCrew',
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('Test payload:', testPayload);
+      
+      const response = await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testPayload)
+      });
+      
+      console.log('Response status:', response.status, response.statusText);
+      console.log('Response headers:', [...response.headers.entries()]);
+      
+      // If we get a response, parse it
+      const responseText = await response.text();
+      console.log('Test connection response text:', responseText);
+      
+      try {
+        const jsonResponse = JSON.parse(responseText);
+        console.log('Parsed JSON response:', jsonResponse);
+        
+        return {
+          success: true,
+          message: jsonResponse.message || 'Connection successful',
+          details: jsonResponse
+        };
+      } catch (parseError) {
+        console.warn('Response is not valid JSON:', parseError);
+        
+        // Response is not valid JSON but we got a response
+        return {
+          success: response.ok,
+          message: response.ok 
+            ? 'Connection successful but response was not JSON' 
+            : `HTTP error: ${response.status}`,
+          details: {
+            responseText,
+            parseError: parseError instanceof Error ? parseError.message : String(parseError)
+          }
+        };
+      }
+    } catch (corsError) {
+      console.warn('CORS issue with test connection:', corsError);
+      
+      // Log complete details of the error
+      if (corsError instanceof Error) {
+        console.error('Error name:', corsError.name);
+        console.error('Error message:', corsError.message);
+        console.error('Error stack:', corsError.stack);
+      }
+      
+      console.log('Falling back to no-cors mode...');
+      
+      try {
+        // Try with no-cors as fallback
+        await fetch(GOOGLE_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            spreadsheetId: FIRE_REPORTS_SHEET_ID,
+            action: 'test',
+            testData: 'Connection test from CrisisCrew',
+            timestamp: new Date().toISOString()
+          }),
+          mode: 'no-cors'
+        });
+        
+        // Since we can't actually check the response with no-cors,
+        // we'll assume it worked if no error was thrown
+        console.log('No-cors test request completed without errors');
+        return {
+          success: true,
+          message: 'Connection test sent in no-cors mode (unable to verify actual result)',
+          details: {
+            usedNoCors: true,
+            originalError: corsError instanceof Error ? corsError.message : String(corsError)
+          }
+        };
+      } catch (noCorsError) {
+        console.error('Even no-cors mode failed:', noCorsError);
+        return {
+          success: false,
+          message: 'Both CORS and no-CORS requests failed',
+          details: {
+            corsError: corsError instanceof Error ? corsError.message : String(corsError),
+            noCorsError: noCorsError instanceof Error ? noCorsError.message : String(noCorsError)
+          }
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Error testing Google Sheets connection:', error);
+    
+    // Log complete details of the error
+    if (error instanceof Error) {
+      console.error('Error name:', error.name);
+      console.error('Error message:', error.message);
+      console.error('Error stack:', error.stack);
+    }
+    
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : String(error),
+      details: error
+    };
+  }
 };
