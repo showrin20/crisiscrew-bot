@@ -1,4 +1,4 @@
-# CrisisCrew - Fire Emergency Data Collection & Response System 🔥
+# CrisisCrewBot - Fire Emergency Data Collection & Response System 🔥
 
 A specialized data collection system for fire emergency response teams in Dhaka, Bangladesh. This application focuses on gathering critical information to coordinate emergency responses efficiently, featuring AI-powered severity assessment, comprehensive data collection, and centralized storage via Google Sheets.
 
